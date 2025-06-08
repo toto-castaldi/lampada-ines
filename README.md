@@ -4,6 +4,10 @@ lampada-ines
 Progetto scolastico.
 Una lampada a LED controllabile da remoto.
 
+[Modello 3D](https://www.tinkercad.com/things/bfledCoUZFf-lampada-ines)
+
+
+
 ## Hardware
 
 - Raspberry Pi Pico 2W
@@ -34,13 +38,11 @@ nix-shell
 # Identifica la porta seriale (solitamente /dev/ttyACM0 su Linux, COMx su Windows)
 
 # Carica i file sul Pico
-mpremote connect /dev/ttyACM0 cp main.py wifi_config.py duckdns_config.py :
+mpremote connect /dev/ttyACM0 cp *.py :
 
 # In alternativa, se mpremote rileva automaticamente la porta:
-mpremote cp main.py wifi_config.py duckdns_config.py :
+mpremote cp *.py :
 
-# Se non usi DuckDNS, ometti duckdns_config.py:
-mpremote cp main.py wifi_config.py :
 
 # Per eseguire il codice immediatamente:
 mpremote run main.py

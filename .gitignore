@@ -1,6 +1,9 @@
 # WiFi configuration file (contains sensitive credentials)
 wifi_config.py
 
+# DuckDNS configuration file (contains sensitive token)
+duckdns_config.py
+
 # Python cache
 __pycache__/
 *.pyc

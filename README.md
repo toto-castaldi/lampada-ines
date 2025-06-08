@@ -15,8 +15,13 @@ Prima di caricare il software, assicurati di:
 1. Entrare nell'ambiente di sviluppo con `nix-shell` (questo installerà automaticamente mpremote)
 2. Creare un file `wifi_config.py` con le credenziali WiFi:
    ```python
-   WIFI_SSID = "nome_rete"
-   WIFI_PASSWORD = "password"
+   SSID = "nome_rete"
+   PASSWORD = "password"
+   ```
+3. (Opzionale) Per accesso remoto, creare un file `duckdns_config.py`:
+   ```python
+   DOMAIN = "tuo-dominio"  # es. "lampada" per lampada.duckdns.org
+   TOKEN = "tuo-token"     # Token da https://www.duckdns.org/
    ```
 
 Per caricare il software sul Raspberry Pi Pico 2W:
@@ -29,9 +34,12 @@ nix-shell
 # Identifica la porta seriale (solitamente /dev/ttyACM0 su Linux, COMx su Windows)
 
 # Carica i file sul Pico
-mpremote connect /dev/ttyACM0 cp main.py wifi_config.py :
+mpremote connect /dev/ttyACM0 cp main.py wifi_config.py duckdns_config.py :
 
 # In alternativa, se mpremote rileva automaticamente la porta:
+mpremote cp main.py wifi_config.py duckdns_config.py :
+
+# Se non usi DuckDNS, ometti duckdns_config.py:
 mpremote cp main.py wifi_config.py :
 
 # Per eseguire il codice immediatamente:
@@ -45,6 +53,16 @@ mpremote reset
 
 Una volta caricato il software:
 1. Il Pico si connetterà automaticamente alla rete WiFi configurata
-2. Accedi all'interfaccia web dal browser all'indirizzo IP mostrato sulla console seriale
+2. Accedi all'interfaccia web dal browser:
+   - Rete locale: usa l'indirizzo IP mostrato sulla console seriale
+   - Accesso remoto (se configurato DuckDNS): `http://tuo-dominio.duckdns.org`
 3. Seleziona un colore basato sull'emozione o usa il selettore RGB personalizzato
+
+## Funzionalità
+
+- **Controllo emozioni**: 7 colori predefiniti associati a emozioni (gioia, rabbia, paura, disgusto, tristezza, ansia, noia)
+- **Effetto arcobaleno**: Animazione colorata
+- **Colore personalizzato**: Selettore RGB per qualsiasi colore
+- **Accesso remoto**: Supporto DuckDNS per controllo da internet (opzionale)
+- **Aggiornamento automatico IP**: Se configurato, l'IP viene aggiornato ogni 5 minuti su DuckDNS
 

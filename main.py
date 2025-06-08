@@ -4,9 +4,18 @@ import machine
 import neopixel
 import time
 import json
+import urequests
 
 # Import WiFi credentials from configuration file
 from wifi_config import SSID, PASSWORD
+
+# Import DuckDNS configuration
+try:
+    from duckdns_config import DOMAIN, TOKEN
+    DUCKDNS_ENABLED = True
+except ImportError:
+    DUCKDNS_ENABLED = False
+    print("DuckDNS config not found - DuckDNS updates disabled")
 
 LED_PIN = 0
 NUM_LEDS = 44
@@ -14,6 +23,10 @@ np = neopixel.NeoPixel(machine.Pin(LED_PIN), NUM_LEDS)
 
 # INTERNAL LED
 led = machine.Pin("LED", machine.Pin.OUT)
+
+# Global variables for DuckDNS periodic update
+last_duckdns_update = 0
+DUCKDNS_UPDATE_INTERVAL = 300  # 5 minutes in seconds
 
 def connect_wifi():
     """WIFI CONNECTION"""
@@ -29,6 +42,32 @@ def connect_wifi():
     led.on()  # INTERNAL LED ON WHEN CONNECTED
     print(f"Connected! IP: {wlan.ifconfig()[0]}")
     return wlan.ifconfig()[0]
+
+def update_duckdns(ip_address):
+    """Update DuckDNS with current IP address"""
+    if not DUCKDNS_ENABLED:
+        return False
+    
+    try:
+        # DuckDNS update URL
+        url = f"https://www.duckdns.org/update?domains={DOMAIN}&token={TOKEN}&ip={ip_address}"
+        
+        print(f"Updating DuckDNS domain: {DOMAIN}.duckdns.org")
+        response = urequests.get(url)
+        
+        # Check if update was successful
+        if response.text.strip() == "OK":
+            print(f"DuckDNS updated successfully! Access at: http://{DOMAIN}.duckdns.org")
+            response.close()
+            return True
+        else:
+            print(f"DuckDNS update failed: {response.text}")
+            response.close()
+            return False
+            
+    except Exception as e:
+        print(f"Error updating DuckDNS: {e}")
+        return False
 
 def clear_strip():
     np.fill((0, 0, 0))
@@ -196,21 +235,39 @@ def handle_request(conn, request):
         print(f"Error: {e}")
 
 def start_server():
+    global last_duckdns_update
+    
     addr = socket.getaddrinfo('0.0.0.0', 80)[0][-1]
     s = socket.socket()
     s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     s.bind(addr)
     s.listen(1)
+    #s.settimeout(1.0)  # Set timeout to check for DuckDNS updates periodically
     
     print("Server UP on port 80")
     
     while True:
         try:
-            conn, addr = s.accept()
-            print(f"Connected from {addr}")
-            request = conn.recv(1024)
-            handle_request(conn, request)
-            conn.close()
+            # Check if it's time to update DuckDNS
+            current_time = time.time()
+            if DUCKDNS_ENABLED and (current_time - last_duckdns_update) > DUCKDNS_UPDATE_INTERVAL:
+                wlan = network.WLAN(network.STA_IF)
+                if wlan.isconnected():
+                    ip = wlan.ifconfig()[0]
+                    update_duckdns(ip)
+                    last_duckdns_update = current_time
+            
+            try:
+                conn, addr = s.accept()
+                print(f"Connected from {addr}")
+                request = conn.recv(1024)
+                handle_request(conn, request)
+                conn.close()
+            except OSError as e:
+                # Timeout occurred, continue to next iteration
+                if e.args[0] != 116:  # ETIMEDOUT
+                    print(f"Socket error: {e}")
+                    
         except Exception as e:
             print(f"Server error: {e}")
             conn.close()
@@ -220,6 +277,9 @@ def main():
         clear_strip()
         
         ip = connect_wifi()
+        
+        # Update DuckDNS with the current IP
+        update_duckdns(ip)
         
         start_server()
         

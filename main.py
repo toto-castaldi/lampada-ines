@@ -2,6 +2,7 @@ import socket
 import machine
 import neopixel
 import time
+import gc
 from wifi_manager import WiFiManager
 from duckdns_manager import DuckDNSManager
 
@@ -120,6 +121,9 @@ def web_page():
 def handle_request(conn, request):
     """Gestisce le richieste web"""
     try:
+        # Set timeout for send operations
+        conn.settimeout(5.0)
+        
         request = request.decode('utf-8')
         
         # Handle configuration mode requests
@@ -127,10 +131,10 @@ def handle_request(conn, request):
             response, response_type = wifi_manager.handle_config_request(request)
             
             if response_type == 'reboot':
-                conn.send('HTTP/1.1 200 OK\n')
-                conn.send('Content-Type: text/plain\n')
-                conn.send('Connection: close\n\n')
-                conn.send('Rebooting...')
+                conn.send(b'HTTP/1.1 200 OK\n')
+                conn.send(b'Content-Type: text/plain\n')
+                conn.send(b'Connection: close\n\n')
+                conn.send(b'Rebooting...')
                 conn.close()
                 time.sleep(1)
                 machine.reset()
@@ -182,22 +186,24 @@ def handle_request(conn, request):
             response = "Not Found"
         
         if response == "OK" or response == "Error":
-            conn.send('HTTP/1.1 200 OK\n')
-            conn.send('Content-Type: text/plain\n')
-            conn.send('Connection: close\n\n')
-            conn.send(response)
+            conn.send(b'HTTP/1.1 200 OK\n')
+            conn.send(b'Content-Type: text/plain\n')
+            conn.send(b'Connection: close\n\n')
+            conn.send(response.encode())
         else:
-            conn.send('HTTP/1.1 200 OK\n')
-            conn.send('Content-Type: text/html\n')
-            conn.send('Connection: close\n\n')
-            conn.send(response)
+            conn.send(b'HTTP/1.1 200 OK\n')
+            conn.send(b'Content-Type: text/html\n')
+            conn.send(b'Connection: close\n\n')
+            conn.send(response.encode())
+    except OSError as e:
+        print(f"Socket error in handler: {e}")
     except Exception as e:
         print(f"Error: {e}")
-        if conn:
-            conn.close()
+    finally:
+        # Don't close here, let the main loop handle it
+        pass
 
 def start_server():
-    
     addr = socket.getaddrinfo('0.0.0.0', 80)[0][-1]
     s = socket.socket()
     s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -205,18 +211,57 @@ def start_server():
     s.listen(1)
     
     print("Server UP on port 80")
+    print(f"Free memory at start: {gc.mem_free()} bytes")
+    
+    request_count = 0
+    last_activity = time.time()
+    
+    # Set non-blocking mode for periodic checks
+    s.setblocking(False)
     
     while True:
+        conn = None
         try:
-            conn, addr = s.accept()
+            # Run garbage collection every 10 requests
+            if request_count % 10 == 0:
+                gc.collect()
+                #print(f"GC run - Free memory: {gc.mem_free()} bytes")
+            
+            # Toggle LED every 30 seconds to show system is alive
+            if time.time() - last_activity > 30:
+                wifi_manager.led.toggle()
+                last_activity = time.time()
+            
+            try:
+                conn, addr = s.accept()
+            except OSError:
+                # No connection available, continue
+                time.sleep(0.1)
+                continue
+            conn.settimeout(5.0)  # 5 second timeout for client operations
+            
             print(f"Connected from {addr}")
             request = conn.recv(1024)
-            handle_request(conn, request)
-            conn.close()        
+            
+            if request:
+                handle_request(conn, request)
+            
+            conn.close()
+            conn = None
+            request_count += 1
+            
+        except OSError as e:
+            # Handle timeout and other socket errors
+            print(f"Socket error: {e}")
         except Exception as e:
             print(f"Server error: {e}")
-            if 'conn' in locals():
-                conn.close()
+        finally:
+            # Always try to close connection
+            if conn:
+                try:
+                    conn.close()
+                except:
+                    pass
 
 def main():
     try:

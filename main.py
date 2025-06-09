@@ -23,7 +23,7 @@ def set_color(r, g, b):
     np.write()
 
 def rainbow_effect():
-    for j in range(10): 
+    for j in range(50): 
         for i in range(NUM_LEDS):
             pixel_index = (i * 256 // NUM_LEDS) + j * 25
             color = wheel(pixel_index & 255)
@@ -143,13 +143,16 @@ def handle_request(conn, request):
         # Normal mode requests
         elif 'GET /' in request:
             if 'GET /gioia' in request:
-                set_color(245, 204, 22)
+                set_color(242, 138, 2)
+                #set_color(245, 204, 22)
                 response = "OK"            
             elif 'GET /rabbia' in request:
-                set_color(242, 46, 2)
+                set_color(255, 0, 0)
+                #set_color(242, 46, 2)
                 response = "OK"
             elif 'GET /paura' in request:
-                set_color(229, 153, 242)
+                set_color(127, 60, 222)
+                #set_color(229, 153, 242)
                 response = "OK"
             elif 'GET /disgusto' in request:
                 set_color(22, 184, 7)
@@ -158,7 +161,8 @@ def handle_request(conn, request):
                 set_color(7, 72, 184)
                 response = "OK"
             elif 'GET /ansia' in request:
-                set_color(242, 138, 2)
+                set_color(242, 46, 2)
+                #set_color(242, 138, 2)
                 response = "OK"
             elif 'GET /noia' in request:
                 set_color(127, 0, 186)

@@ -68,3 +68,8 @@ Una volta caricato il software:
 - **Accesso remoto**: Supporto DuckDNS per controllo da internet (opzionale)
 - **Aggiornamento automatico IP**: Se configurato, l'IP viene aggiornato ogni 5 minuti su DuckDNS
 
+# Tesina Ines
+
+La lampada è stata stampata in PLA (https://it.wikipedia.org/wiki/Acido_polilattico) .
+
+Grazie al microcontrollore Raspberry PICO2 programmato in Python è possibile comandare i led sia da cellulare che dai due pulsanti.

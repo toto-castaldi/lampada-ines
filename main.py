@@ -3,6 +3,7 @@ import machine
 import neopixel
 import time
 import gc
+import _thread
 from wifi_manager import WiFiManager
 from duckdns_manager import DuckDNSManager
 
@@ -10,9 +11,26 @@ LED_PIN = 0
 NUM_LEDS = 44
 np = neopixel.NeoPixel(machine.Pin(LED_PIN), NUM_LEDS)
 
+# Button pins
+BUTTON1_PIN = 12  # Button for cycling emotions
+BUTTON2_PIN = 14  # Button for on/off toggle
+
 # Manager instances
 wifi_manager = WiFiManager()
 duckdns_manager = DuckDNSManager()
+
+# Global variables for button handling
+current_emotion = 0
+lamp_on = True
+emotions = [
+    ('gioia', 242, 138, 2),
+    ('rabbia', 255, 0, 0),
+    ('paura', 127, 60, 222),
+    ('disgusto', 22, 184, 7),
+    ('tristezza', 7, 72, 184),
+    ('ansia', 242, 46, 2),
+    ('noia', 127, 0, 186)
+]
 
 def clear_strip():
     np.fill((0, 0, 0))
@@ -142,36 +160,57 @@ def handle_request(conn, request):
         
         # Normal mode requests
         elif 'GET /' in request:
+            global current_emotion, lamp_on
+            
             if 'GET /gioia' in request:
-                set_color(242, 138, 2)
-                #set_color(245, 204, 22)
+                lamp_on = True
+                current_emotion = 0  # Index of gioia
+                _, r, g, b = emotions[current_emotion]
+                set_color(r, g, b)
                 response = "OK"            
             elif 'GET /rabbia' in request:
-                set_color(255, 0, 0)
-                #set_color(242, 46, 2)
+                lamp_on = True
+                current_emotion = 1  # Index of rabbia
+                _, r, g, b = emotions[current_emotion]
+                set_color(r, g, b)
                 response = "OK"
             elif 'GET /paura' in request:
-                set_color(127, 60, 222)
-                #set_color(229, 153, 242)
+                lamp_on = True
+                current_emotion = 2  # Index of paura
+                _, r, g, b = emotions[current_emotion]
+                set_color(r, g, b)
                 response = "OK"
             elif 'GET /disgusto' in request:
-                set_color(22, 184, 7)
+                lamp_on = True
+                current_emotion = 3  # Index of disgusto
+                _, r, g, b = emotions[current_emotion]
+                set_color(r, g, b)
                 response = "OK"
             elif 'GET /tristezza' in request:
-                set_color(7, 72, 184)
+                lamp_on = True
+                current_emotion = 4  # Index of tristezza
+                _, r, g, b = emotions[current_emotion]
+                set_color(r, g, b)
                 response = "OK"
             elif 'GET /ansia' in request:
-                set_color(242, 46, 2)
-                #set_color(242, 138, 2)
+                lamp_on = True
+                current_emotion = 5  # Index of ansia
+                _, r, g, b = emotions[current_emotion]
+                set_color(r, g, b)
                 response = "OK"
             elif 'GET /noia' in request:
-                set_color(127, 0, 186)
+                lamp_on = True
+                current_emotion = 6  # Index of noia
+                _, r, g, b = emotions[current_emotion]
+                set_color(r, g, b)
                 response = "OK"
             elif 'GET /rainbow' in request:
                 rainbow_effect()
+                lamp_on = True
                 response = "OK"
             elif 'GET /off' in request:
                 clear_strip()
+                lamp_on = False
                 response = "OK"
             elif 'GET /custom' in request:
                 try:
@@ -181,6 +220,7 @@ def handle_request(conn, request):
                         key, value = param.split('=')
                         params[key] = int(value)
                     set_color(params['r'], params['g'], params['b'])
+                    lamp_on = True
                     response = "OK"
                 except:
                     response = "Error"
@@ -267,6 +307,56 @@ def start_server():
                 except:
                     pass
 
+def button_handler():
+    """Thread function to handle button presses"""
+    global current_emotion, lamp_on
+    
+    # Setup buttons with pull-up resistors
+    button1 = machine.Pin(BUTTON1_PIN, machine.Pin.IN, machine.Pin.PULL_UP)
+    button2 = machine.Pin(BUTTON2_PIN, machine.Pin.IN, machine.Pin.PULL_UP)
+    
+    # Debounce variables
+    button1_last_state = 1
+    button2_last_state = 1
+    last_button1_time = 0
+    last_button2_time = 0
+    debounce_delay = 200  # 200ms debounce
+    
+    while True:
+        # Read button states (0 when pressed with pull-up)
+        button1_state = button1.value()
+        button2_state = button2.value()
+        
+        current_time = time.ticks_ms()
+        
+        # Handle button 1 - cycle emotions
+        if button1_state == 0 and button1_last_state == 1:  # Button pressed
+            if time.ticks_diff(current_time, last_button1_time) > debounce_delay:
+                if lamp_on:
+                    current_emotion = (current_emotion + 1) % len(emotions)
+                    emotion_name, r, g, b = emotions[current_emotion]
+                    set_color(r, g, b)
+                    print(f"Emotion: {emotion_name}")
+                last_button1_time = current_time
+        
+        # Handle button 2 - toggle on/off
+        if button2_state == 0 and button2_last_state == 1:  # Button pressed
+            if time.ticks_diff(current_time, last_button2_time) > debounce_delay:
+                lamp_on = not lamp_on
+                if lamp_on:
+                    # Turn on with current emotion color
+                    emotion_name, r, g, b = emotions[current_emotion]
+                    set_color(r, g, b)
+                    print("Lamp ON")
+                else:
+                    clear_strip()
+                    print("Lamp OFF")
+                last_button2_time = current_time
+        
+        button1_last_state = button1_state
+        button2_last_state = button2_state
+        time.sleep_ms(10)
+
 def main():
     try:
         clear_strip()
@@ -276,6 +366,10 @@ def main():
         # Update DuckDNS with the current IP only in normal mode
         if not wifi_manager.hotspot_mode:
             duckdns_manager.update(ip)
+        
+        # Start button handler thread
+        _thread.start_new_thread(button_handler, ())
+        print("Button handler thread started")
         
         start_server()
         

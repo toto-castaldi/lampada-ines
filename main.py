@@ -12,8 +12,12 @@ NUM_LEDS = 44
 np = neopixel.NeoPixel(machine.Pin(LED_PIN), NUM_LEDS)
 
 # Button pins
-BUTTON1_PIN = 12  # Button for cycling emotions
+BUTTON1_PIN = 13  # Button for cycling emotions
 BUTTON2_PIN = 14  # Button for on/off toggle
+
+# Buzzer pin
+BUZZER_PIN = 9  # You can change this to your desired pin
+buzzer = machine.PWM(machine.Pin(BUZZER_PIN))
 
 # Manager instances
 wifi_manager = WiFiManager()
@@ -58,6 +62,16 @@ def wheel(pos):
     else:
         pos -= 170
         return (0, pos * 3, 255 - pos * 3)
+
+def beep(count=1, frequency=1000, duration=100):
+    """Play beep sound count times"""
+    for i in range(count):
+        buzzer.freq(frequency)
+        buzzer.duty_u16(32768)  # 50% duty cycle (65535/2)
+        time.sleep_ms(duration)
+        buzzer.duty_u16(0)  # Turn off
+        if i < count - 1:
+            time.sleep_ms(100)  # Pause between beeps
 
 
 def web_page():
@@ -256,6 +270,7 @@ def start_server():
     
     print("Server UP on port 80")
     print(f"Free memory at start: {gc.mem_free()} bytes")
+    beep(2)  # Double beep when web server starts
     
     request_count = 0
     last_activity = time.time()
@@ -331,6 +346,7 @@ def button_handler():
         
         # Handle button 1 - cycle emotions
         if button1_state == 0 and button1_last_state == 1:  # Button pressed
+            print("Button 1 pressed")
             if time.ticks_diff(current_time, last_button1_time) > debounce_delay:
                 if lamp_on:
                     current_emotion = (current_emotion + 1) % len(emotions)
@@ -341,6 +357,7 @@ def button_handler():
         
         # Handle button 2 - toggle on/off
         if button2_state == 0 and button2_last_state == 1:  # Button pressed
+            print("Button 2 pressed")
             if time.ticks_diff(current_time, last_button2_time) > debounce_delay:
                 lamp_on = not lamp_on
                 if lamp_on:
@@ -355,7 +372,7 @@ def button_handler():
         
         button1_last_state = button1_state
         button2_last_state = button2_state
-        time.sleep_ms(10)
+        time.sleep_ms(100)  # Sleep to reduce CPU usage
 
 def main():
     try:
@@ -370,7 +387,12 @@ def main():
         # Start button handler thread
         _thread.start_new_thread(button_handler, ())
         print("Button handler thread started")
+        beep(1)  # Single beep when button handler starts
         
+        # Small delay to ensure button handler is running
+        time.sleep(0.5)
+        
+        # Start web server
         start_server()
         
     except KeyboardInterrupt:

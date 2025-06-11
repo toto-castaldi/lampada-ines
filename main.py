@@ -65,6 +65,7 @@ def wheel(pos):
 
 def beep(count=1, frequency=1000, duration=100):
     """Play beep sound count times"""
+    print(f"Beep {count} times at {frequency}Hz for {duration}ms")
     for i in range(count):
         buzzer.freq(frequency)
         buzzer.duty_u16(32768)  # 50% duty cycle (65535/2)
@@ -270,7 +271,6 @@ def start_server():
     
     print("Server UP on port 80")
     print(f"Free memory at start: {gc.mem_free()} bytes")
-    beep(2)  # Double beep when web server starts
     
     request_count = 0
     last_activity = time.time()
@@ -376,19 +376,25 @@ def button_handler():
 
 def main():
     try:
+        time.sleep(0.5)
+        
         clear_strip()
         
-        ip = wifi_manager.connect()
+        time.sleep(0.5)
         
-        # Update DuckDNS with the current IP only in normal mode
-        if not wifi_manager.hotspot_mode:
-            duckdns_manager.update(ip)
         
         # Start button handler thread
         _thread.start_new_thread(button_handler, ())
         print("Button handler thread started")
         beep(1)  # Single beep when button handler starts
         
+        ip = wifi_manager.connect()
+        if ip:
+            # Update DuckDNS with the current IP only in normal mode
+            if not wifi_manager.hotspot_mode:
+                if duckdns_manager.update(ip):
+                    beep(2)
+
         # Small delay to ensure button handler is running
         time.sleep(0.5)
         

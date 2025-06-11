@@ -35,7 +35,7 @@ class DuckDNSManager:
             url = f"https://www.duckdns.org/update?domains={self.domain}&token={self.token}&ip={ip_address}"
             
             print(f"Updating DuckDNS domain: {self.domain}.duckdns.org")
-            response = urequests.get(url, timeout=10)
+            response = urequests.get(url, timeout=20)
             
             # Check if update was successful
             if response.text.strip() == "OK":
